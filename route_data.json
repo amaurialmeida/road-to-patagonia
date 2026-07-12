@@ -1,0 +1,80 @@
+[
+    {
+        "name": "S\u00e3o Paulo (Mooca), BR",
+        "lat": -23.5558,
+        "lon": -46.6116,
+        "type": "Start"
+    },
+    {
+        "name": "Curitiba, BR",
+        "lat": -25.429,
+        "lon": -49.2671,
+        "type": "Tesla/Gas"
+    },
+    {
+        "name": "Florian\u00f3polis, BR",
+        "lat": -27.5949,
+        "lon": -48.5482,
+        "type": "Tesla/Gas"
+    },
+    {
+        "name": "Porto Alegre, BR",
+        "lat": -30.0346,
+        "lon": -51.2177,
+        "type": "Tesla/Gas"
+    },
+    {
+        "name": "Chu\u00ed, BR",
+        "lat": -33.6911,
+        "lon": -53.4544,
+        "type": "Gas"
+    },
+    {
+        "name": "Punta del Este, UY",
+        "lat": -34.9632,
+        "lon": -54.944,
+        "type": "Tesla/Gas"
+    },
+    {
+        "name": "Buenos Aires, AR",
+        "lat": -34.6037,
+        "lon": -58.3816,
+        "type": "Tesla/Gas"
+    },
+    {
+        "name": "Bah\u00eda Blanca, AR",
+        "lat": -38.7183,
+        "lon": -62.2663,
+        "type": "Tesla/Gas"
+    },
+    {
+        "name": "Puerto Madryn, AR",
+        "lat": -42.7692,
+        "lon": -65.0385,
+        "type": "Tesla/Gas"
+    },
+    {
+        "name": "Comodoro Rivadavia, AR",
+        "lat": -45.8641,
+        "lon": -67.4808,
+        "type": "Tesla/Gas"
+    },
+    {
+        "name": "R\u00edo Gallegos, AR",
+        "lat": -51.623,
+        "lon": -69.2168,
+        "type": "Tesla/Gas"
+    },
+    {
+        "name": "Ushuaia, AR",
+        "lat": -54.8019,
+        "lon": -68.303,
+        "type": "End (AR)"
+    },
+    {
+        "name": "Puerto Williams, CL",
+        "lat": -54.9341,
+        "lon": -67.6109,
+        "type": "End (CL)"
+    }
+]
