@@ -5,150 +5,87 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Status](https://img.shields.io/badge/Status-Active-brightgreen)]()
 
-🌐 **Languages:** English | [Português](README.pt-BR.md) | [Español](README.es.md)
+🌐 **Languages:** [Português](README.md) | [Español](README.es.md) | [English](README.en.md)
 
-**Independent Field Research — Applied Automotive & Energy Case Study**
+**Independent Field Research — Applied Automotive & Energy Case Study (2024–2026)**
 Route: São Paulo (Mooca), Brazil → Ushuaia, Argentina & Puerto Williams, Chile
 **Author:** Amauri Almeida de Souza Junior
 
 ---
 
-## ❓ Research Question
+## 🌟 Visão Geral da Modernização
 
-> "Over a real ~5,000 km road trip from São Paulo to the southern tip of South America, crossing Brazil, Uruguay, Argentina, and Chile — how does a fully electric vehicle compare to a combustion vehicle in terms of estimated trip cost and range logistics?"
-
-**Answer:** Across the same route, the electric vehicle (Tesla Model 3 Long Range) shows a substantially lower estimated energy cost than the combustion vehicle (Hyundai Tucson), at the expense of range per stop and dependency on charging infrastructure availability along a corridor where fast chargers are far less common than gas stations — a trade-off this project quantifies and visualizes stop by stop.
+Inspirado nas visualizações imersivas de alta interatividade (como o painel global de temperaturas), o projeto **Road to Patagonia** foi profundamente modernizado para proporcionar uma experiência visual de impacto imediato ("WOW"). A nova interface une design editorial, navegação por abas intuitivas, seletor trilíngue dinâmico (PT / ES / EN), mapa geoespacial vetorial com animações de trajeto e dossiês detalhados ponto a ponto.
 
 ---
 
-## 📊 Data Summary
+## ❓ Questão de Pesquisa
 
-| Indicator | Value |
-|---|---|
-| Route | São Paulo (BR) → Ushuaia (AR) → Puerto Williams (CL) |
-| Countries crossed | 🇧🇷 Brazil · 🇺🇾 Uruguay · 🇦🇷 Argentina · 🇨🇱 Chile |
-| Approx. total distance | ~5,000 km |
-| Mapped stop points | 12 (start, waypoints, dual endpoint) |
-| Vehicles compared | Tesla Model 3 (2024, electric) vs. Hyundai Tucson (2024, combustion) |
-| Estimated cost — Tesla Model 3 | ≈ $450 USD (charging) |
-| Estimated cost — Hyundai Tucson | ≈ $1,200 USD (gasoline) |
+> *"Em uma viagem rodoviária real de aproximadamente 5.000 km de São Paulo ao extremo sul da América do Sul, cruzando Brasil, Uruguai, Argentina e Chile — como um veículo 100% elétrico se compara a um veículo a combustão interna em termos de custo de viagem e logística de autonomia?"*
 
-*Cost figures are trip-level estimates based on vehicle specs and regional energy/fuel prices, not metered real-world billing — see [Methodology](#-methodology).*
+**Conclusão:** O veículo elétrico (Tesla Model 3 Long Range) apresenta, neste snapshot configurável, custo operacional de energia inferior ao veículo a combustão. O resultado muda com câmbio, preço local, consumo, perdas de recarga e disponibilidade de carregadores. O desafio reside na assimetria de infraestrutura de recarga rápida nas regiões mais austrais da Patagônia.
 
 ---
 
-## 🔵 Key Findings
+## 📍 Os 13 Pontos Mapeados da Rota
 
-- **~2.7× lower estimated energy cost for the EV** — the Tesla Model 3's estimated charging cost (~$450) is roughly a third of the Tucson's estimated fuel cost (~$1,200) over the same route.
-- **Range trade-off** — the Tesla's estimated range (550 km) is shorter than the Tucson's (750 km), meaning more frequent stops are required despite the lower running cost.
-- **Infrastructure asymmetry** — gas stations (Ipiranga, YPF, Copec) are ubiquitous along the route, while CCS2 fast-charging infrastructure is comparatively sparse — especially south of Bahía Blanca, Argentina.
-- **A genuinely international corridor** — the route crosses four countries and ends at two possible "southernmost point" destinations, Ushuaia (AR) and Puerto Williams (CL), reflecting real regional debate over which city is the true end of the road.
-
----
-
-## 🗺️ Route Overview
-
-```
-Start        → São Paulo (Mooca), BR
-Waypoints    → Curitiba → Florianópolis → Porto Alegre → Chuí (BR/UY border)
-             → Punta del Este → Buenos Aires → Bahía Blanca
-             → Puerto Madryn → Comodoro Rivadavia → Río Gallegos
-End (AR)     → Ushuaia, Argentina
-End (CL)     → Puerto Williams, Chile (via short crossing from Ushuaia)
-```
-
-The interactive map plots the full trajectory with dynamic markers — charging points, gas stations, and dual-fuel stops — rendered from geocoded route data.
+| # | Parada / Local | País | Distância Acumulada | Infraestrutura Principal |
+|---|---|---|---|---|
+| 1 | São Paulo (Mooca) | 🇧🇷 Brasil | 0 km | Supercharger & Rede Rodoviária |
+| 2 | Curitiba | 🇧🇷 Brasil | 408 km | Eletropostos BR-116 & Shopping |
+| 3 | Florianópolis | 🇧🇷 Brasil | 705 km | Destination Chargers & Costa |
+| 4 | Porto Alegre | 🇧🇷 Brasil | 1.160 km | Eletropostos Urbanos & Rede Sul |
+| 5 | Chuí | 🇧🇷/🇺🇾 BR / UY | 1.680 km | Rota Elétrica UTE (Uruguai) |
+| 6 | Punta del Este | 🇺🇾 Uruguai | 1.920 km | Malha UTE & Postos Ancap |
+| 7 | Buenos Aires | 🇦🇷 Argentina | 2.350 km | Supercharger & Postos YPF |
+| 8 | Bahía Blanca | 🇦🇷 Argentina | 2.980 km | Porta de entrada patagônica (YPF) |
+| 9 | Puerto Madryn | 🇦🇷 Argentina | 3.420 km | Península Valdés & Fauna Marinha |
+| 10 | Comodoro Rivadavia | 🇦🇷 Argentina | 3.850 km | Capital do Petróleo & Eólica |
+| 11 | Río Gallegos | 🇦🇷 Argentina | 4.450 km | Portal patagônico austral |
+| 12 | Ushuaia | 🇦🇷 Argentina | 5.020 km | Fim da Ruta 3 (Terra do Fogo) |
+| 13 | Puerto Williams | 🇨🇱 Chile | 5.100 km | Cidade mais austral (Isla Navarino) |
 
 ---
 
-## 🔬 Methodology
+## 🔬 Metodologia & Diferenciais
 
-```
-Route data       →  12 waypoints geocoded (lat/lon) and stored in route_data.json,
-                     each tagged by stop type (Start / Tesla-Gas / End)
+- **Mapeamento Geoespacial Avançado:** Folium com camadas temáticas, linhas animadas de trajeto (*AntPath*) e marcadores interativos com fichas completas.
+- **Auto-Drive contínuo:** Tesla Model 3 ou Hyundai Tucson percorrem a rota automaticamente; o usuário pode pausar e inspecionar cada parada.
+- **Dossiê financeiro por segmento:** O app calcula litros de gasolina, kWh comprados, preço local, custo em moeda local e conversão para USD por trecho.
+- **Atualização diária com fallback:** A aplicação tenta consultar fontes públicas uma vez a cada 24 horas, exibe a data e a frequência real do dado e preserva o snapshot local quando uma fonte falha.
+- **Emissões operacionais:** A comparação separa CO₂ direto da gasolina e CO₂ associado à eletricidade, com hipóteses editáveis e fatores EPA/IPCC documentados.
+- **Travessias por água:** Ushuaia → Puerto Williams é tratado como ferry/água, não como estrada. A Primera Angostura aparece como tarifa de veículo; o Canal Beagle é separado como tarifa de passageiro e exige cotação própria para embarcar o carro.
+- **Tradução Instantânea:** Suporte completo para Português, Espanhol e Inglês diretamente na barra lateral.
+- **Design Imersivo:** Paleta de cores inspirada em expedições polares e patagônicas, com cartões interativos e tipografia refinada (*Playfair Display* e *Plus Jakarta Sans*).
 
-Mapping          →  Folium + CartoDB Positron tiles; polyline trajectory;
-                     dynamic icon assignment per stop type (charger, gas pump, flag)
+### Dados e fontes
 
-Vehicle specs    →  Tesla Model 3 Long Range (2024): 550 km range, 78.1 kWh battery,
-                     CCS2 charging network
-                     Hyundai Tucson (2024): 750 km range, 54 L fuel tank,
-                     regional gas station networks
-
-Cost comparison  →  Grouped bar chart (Plotly) contrasting estimated total trip cost
-                     in USD for each vehicle across the same route
-
-Trilingual UX    →  Full PT / EN / ES interface via a unified translation dictionary,
-                     selectable from the sidebar
-```
+O arquivo `route_economics.json` centraliza preços de gasolina, diesel, eletricidade, hipóteses de consumo, fatores de emissão e travessias. As fontes indicadas incluem [ANP](https://app.powerbi.com/view?r=eyJrIjoiMGM0NDhhMTUtMjQwZi00N2RlLTk1M2UtYjkxZTlkNzM1YzE5IiwidCI6IjQ0OTlmNGZmLTI0YTYtNGI0Mi1iN2VmLTEyNGFmY2FkYzkxMyJ9), [ANCAP](https://www.ancap.com.uy/10564/1/historico-precios-combustibles.html), [Secretaría de Energía da Argentina](http://res1104.se.gob.ar/consultaprecios.eess.php), [CNE Chile](https://apidocs.cne.cl/), [TABSA](https://www.tabsa.cl/rutas/primera-angostura) e [EPA/IPCC](https://www.epa.gov/energy/greenhouse-gas-equivalencies-calculator-calculations-and-references). Preço nacional ou de referência não substitui cotação por posto, data, rede, câmbio e disponibilidade.
 
 ---
 
-## 🛠️ Tech Stack
-
-| Technology | Use |
-|---|---|
-| Python 3.11 | Core language |
-| Streamlit | Interactive dashboard & multi-tab UI |
-| Folium + streamlit-folium | Interactive route mapping |
-| Plotly | Cost comparison charts |
-| Pandas | Route data handling |
-| JSON | Route waypoint storage |
-
----
-
-## 📁 Repository Structure
-
-```
-road-to-patagonia/
-├── app.py                  # Main Streamlit dashboard
-├── route_data.json          # Geocoded route waypoints (lat/lon/type)
-├── requirements.txt         # Python dependencies
-├── README.md                 # This file (English)
-├── README.pt-BR.md           # Portuguese version
-└── README.es.md              # Spanish version
-```
-
----
-
-## 🚀 Run Locally
+## 🚀 Como Executar Localmente
 
 ```bash
-# Clone the repository
+# Clonar o repositório
 git clone https://github.com/amaurialmeida/road-to-patagonia.git
 cd road-to-patagonia
 
-# Install dependencies
+# Instalar dependências
 pip install -r requirements.txt
 
-# Run
+# Executar a aplicação Streamlit
 streamlit run app.py
 ```
 
 ---
 
-## 🌐 Live App
+## 🔗 Links Profissionais & Portfólio
 
-🔗 **[road-to-patagonia.streamlit.app](https://road-to-patagonia.streamlit.app/)**
-
-Available in 🇧🇷 Portuguese, 🇺🇸 English, and 🇪🇸 Spanish via the in-app language selector.
-
----
-
-## 🔗 Academic / Professional Links
-
-| Platform | Link |
-|---|---|
-| Lattes | http://lattes.cnpq.br/9545242042800090 |
-| Escavador | https://www.escavador.com/sobre/8577779/amauri-almeida-de-souza-junior |
+- **Lattes:** [http://lattes.cnpq.br/9545242042800090](http://lattes.cnpq.br/9545242042800090)
+- **Escavador:** [https://www.escavador.com/sobre/8577779/amauri-almeida-de-souza-junior](https://www.escavador.com/sobre/8577779/amauri-almeida-de-souza-junior)
+- **Portfólio Ambiental:** [https://amaurialmeida.github.io/environmental-portfolio/](https://amaurialmeida.github.io/environmental-portfolio/)
 
 ---
 
-## 🌿 Environmental Portfolio
-
-This project is part of the author's environmental research and data science portfolio.
-🔗 [amaurialmeida.github.io/environmental-portfolio](https://amaurialmeida.github.io/environmental-portfolio)
-
----
-
-© 2024–2026 · Amauri Almeida de Souza Junior · Independent Research · Portfolio Project
+© 2024–2026 · Amauri Almeida de Souza Junior · Expedição Patagônia · Pesquisa de Campo
