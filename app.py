@@ -6,15 +6,22 @@ import pandas as pd
 import plotly.graph_objects as go
 import json
 import os
+import base64
+import re
+from datetime import datetime, timezone
+from concurrent.futures import ThreadPoolExecutor
+
+import requests
 
 st.set_page_config(
     page_title="Expedição Patagônia · Elétrico vs Combustão",
-    page_icon="🚗",
-    layout="wide"
+    page_icon="🏔️",
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
 
 # ============================================================
-# SISTEMA DE IDIOMAS
+# SISTEMA DE IDIOMAS (PT / ES / EN)
 # ============================================================
 if "lang" not in st.session_state:
     st.session_state.lang = "pt"
@@ -22,147 +29,510 @@ if "lang" not in st.session_state:
 TRANSLATIONS = {
     "pt": {
         "page_title": "Expedição Patagônia · Elétrico vs Combustão",
-        "hero_tag": "Pesquisa de Campo · Automotivo & Energia · 2024–2026",
+        "hero_tag": "PESQUISA DE CAMPO CIENTÍFICA & AUTOMOTIVA · 2024–2026",
         "hero_title": "Expedição Patagônia:\nElétrico vs Combustão",
-        "hero_subtitle": "De São Paulo (Mooca) ao Fim do Mundo (Ushuaia & Puerto Williams). Um trajeto real de ~5.000 km cruzando 4 países, comparando um Tesla Model 3 elétrico contra um Hyundai Tucson a combustão, ponto a ponto.",
-        "badge1": "🔋 Tesla Model 3", "badge2": "⛽ Hyundai Tucson", "badge3": "BR · UY · AR · CL",
-        "badge4": "~5.000 KM", "badge5": "13 PONTOS MAPEADOS",
-        "protocol_title": "📋 Nota Metodológica:",
-        "protocol_text": "Os custos de viagem apresentados são estimativas de trip-level baseadas em especificações dos veículos e preços regionais médios de energia/combustível — não faturamento medido em tempo real. Ver detalhamento na aba de Especificações & Custos.",
-        "m1": "Distância total", "m2": "Custo estimado Tesla", "m3": "Custo estimado Tucson", "m4": "Economia do elétrico",
-        "tab1": "🗺️ Rotas & Pontos de Parada", "tab2": "🔬 Especificações & Custos",
-        "map_label": "VISUALIZAÇÃO GEOESPACIAL", "map_title": "Mapa de Rotas, Carregadores (Tesla) & Postos de Gasolina (Tucson)",
-        "map_hint": "🚗 <strong>Interação:</strong> Clique em qualquer marcador para ver o tipo de parada. O carro no mapa percorre o trajeto real da expedição, ponto a ponto.",
-        "details_label": "DETALHAMENTO", "details_title": "Coordenadas e Pontos de Parada",
-        "specs_label": "FICHA TÉCNICA", "specs_title": "Especificações dos Veículos",
-        "tesla_range": "Autonomia estimada:", "tucson_range": "Autonomia estimada:",
-        "tesla_battery": "Bateria:", "tucson_tank": "Tanque de combustível:",
-        "tesla_infra": "Infraestrutura:", "tucson_infra": "Infraestrutura:",
-        "comparison_label": "ANÁLISE FINANCEIRA", "comparison_title": "Comparativo de Custo Estimado (USD)",
-        "why_go_title": "Por que ir para a Patagônia?",
-        "why_go_text": "A Patagônia oferece paisagens únicas no mundo. Viajar de carro permite uma conexão profunda com a natureza, cruzando fronteiras e desafiando limites tecnológicos — e testando, na prática, os limites reais da mobilidade elétrica em uma rota remota.",
-        "route_overview_title": "Visão Geral do Trajeto",
-        "route_overview_text": "Início → São Paulo (Mooca), BR<br>Trajeto → Curitiba → Florianópolis → Porto Alegre → Chuí (fronteira BR/UY)<br>→ Punta del Este → Buenos Aires → Bahía Blanca → Puerto Madryn<br>→ Comodoro Rivadavia → Río Gallegos<br>Fim (AR) → Ushuaia, Argentina<br>Fim (CL) → Puerto Williams, Chile",
-        "tech_label": "TECNOLOGIAS UTILIZADAS",
-        "footer_title": "🚗 Amauri Almeida",
-        "footer_desc": "Tecnólogo em Gestão Ambiental · FATEC Jundiaí (3º ENADE)<br>Pós-Graduação em IA, Machine Learning & Data Science · Pós-Graduação em Ciência de Dados & Big Data<br>Análise e Desenvolvimento de Sistemas · FACINT Maringá",
+        "hero_subtitle": "Simulação autônoma em tempo real: o veículo percorre a rota sozinho de São Paulo (Mooca) ao Fim do Mundo (Ushuaia & Puerto Williams) com opção de Pausa e Inspeção de Paradas.",
+        "badge1": "🔋 Tesla Model 3 Long Range", "badge2": "⛽ Hyundai Tucson 2.0", "badge3": "🇧🇷 🇺🇾 🇦🇷 🇨🇱 4 Países",
+        "badge4": "~5.100 KM", "badge5": "13 Pontos Mapeados",
+        "nav_title": "Navegação da Expedição",
+        "nav_home": "🌟 Visão Geral & Painel",
+        "nav_map": "🗺️ Modo Auto-Drive & Frota Animada",
+        "nav_stops": "📍 Diário de Bordo & Paradas",
+        "nav_specs": "🔬 Ficha Técnica & Custos",
+        "nav_tech": "⚙️ Metodologia & Dados",
+        "m1": "Distância Total (Ida)", "m2": "Custo Estimado (Tesla)", "m3": "Custo Estimado (Tucson)", "m4": "Economia do Elétrico",
+        "map_label": "MODO AUTO-DRIVE ATIVO", "map_title": "Veículo Autônomo em Rota: Condução Contínua com Pause/Play",
+        "map_hint": "🕹️ <strong>Controle de Condução:</strong> O veículo anda sozinho pela rota patagônica. Use os botões abaixo para <strong>Pausar</strong> ou <strong>Retomar</strong> a viagem a qualquer momento, e clique em qualquer marcador para inspecionar os detalhes da parada.",
+        "details_label": "ESTAÇÕES DA ROTA", "details_title": "Raio-X dos Pontos de Parada",
+        "specs_label": "ANÁLISE COMPARATIVA", "specs_title": "Custos, Emissões e Desafios Logísticos",
+        "why_go_title": "Por que esta expedição importa?",
+        "why_go_text": "A transição energética para a mobilidade elétrica enfrenta seu teste definitivo nas rodovias remotas da América do Sul. O modo Auto-Drive permite acompanhar a viagem de forma contínua, simulando o ritmo real de condução e os desafios de autonomia.",
+        "route_overview_title": "Itinerário Completo da Rota",
+        "route_overview_text": "Início: São Paulo (Mooca), BR → Curitiba → Florianópolis → Porto Alegre → Chuí (Fronteira Brasil-Uruguai) → Punta del Este → Buenos Aires → Bahía Blanca → Puerto Madryn → Comodoro Rivadavia → Río Gallegos → Fim 1: Ushuaia (Argentina) → Fim 2: Puerto Williams (Chile, Isla Navarino).",
+        "tech_label": "TECNOLOGIAS & PILHA DE DADOS",
+        "footer_title": "🚗 Amauri Almeida · Pesquisador & Autor",
+        "footer_desc": "Tecnólogo em Gestão Ambiental (FATEC Jundiaí) · Pós-Graduando em IA, Machine Learning & Data Science e Big Data<br>Análise e Desenvolvimento de Sistemas (FACINT Maringá)",
         "footer_links": "📍 Brasil · Uruguai · Argentina · Chile",
     },
     "es": {
         "page_title": "Expedición Patagonia · Eléctrico vs Combustión",
-        "hero_tag": "Investigación de Campo · Automotor & Energía · 2024–2026",
+        "hero_tag": "INVESTIGACIÓN DE CAMPO CIENTÍFICA & AUTOMOTOR · 2024–2026",
         "hero_title": "Expedición Patagonia:\nEléctrico vs Combustión",
-        "hero_subtitle": "De São Paulo (Mooca) al Fin del Mundo (Ushuaia & Puerto Williams). Un trayecto real de ~5.000 km cruzando 4 países, comparando un Tesla Model 3 eléctrico contra un Hyundai Tucson a combustión, punto a punto.",
-        "badge1": "🔋 Tesla Model 3", "badge2": "⛽ Hyundai Tucson", "badge3": "BR · UY · AR · CL",
-        "badge4": "~5.000 KM", "badge5": "13 PUNTOS MAPEADOS",
-        "protocol_title": "📋 Nota Metodológica:",
-        "protocol_text": "Los costos de viaje presentados son estimaciones a nivel de trayecto basadas en especificaciones de los vehículos y precios regionales promedio de energía/combustible — no facturación medida en tiempo real. Ver detalle en la pestaña de Especificaciones y Costos.",
-        "m1": "Distancia total", "m2": "Costo estimado Tesla", "m3": "Costo estimado Tucson", "m4": "Ahorro del eléctrico",
-        "tab1": "🗺️ Rutas y Puntos de Parada", "tab2": "🔬 Especificaciones y Costos",
-        "map_label": "VISUALIZACIÓN GEOESPACIAL", "map_title": "Mapa de Ruta, Cargadores (Tesla) y Estaciones de Servicio (Tucson)",
-        "map_hint": "🚗 <strong>Interacción:</strong> Haga clic en cualquier marcador para ver el tipo de parada. El auto en el mapa recorre el trayecto real de la expedición, punto a punto.",
-        "details_label": "DETALLE", "details_title": "Coordenadas y Puntos de Parada",
-        "specs_label": "FICHA TÉCNICA", "specs_title": "Especificaciones de los Vehículos",
-        "tesla_range": "Autonomía estimada:", "tucson_range": "Autonomía estimada:",
-        "tesla_battery": "Batería:", "tucson_tank": "Tanque de combustible:",
-        "tesla_infra": "Infraestructura:", "tucson_infra": "Infraestructura:",
-        "comparison_label": "ANÁLISIS FINANCIERO", "comparison_title": "Comparativa de Costo Estimado (USD)",
-        "why_go_title": "¿Por qué ir a la Patagonia?",
-        "why_go_text": "La Patagonia ofrece paisajes únicos en el mundo. Viajar en auto permite una conexión profunda con la naturaleza, cruzando fronteras y desafiando límites tecnológicos — probando en la práctica los límites reales de la movilidad eléctrica en una ruta remota.",
-        "route_overview_title": "Visión General del Trayecto",
-        "route_overview_text": "Inicio → São Paulo (Mooca), BR<br>Trayecto → Curitiba → Florianópolis → Porto Alegre → Chuí (frontera BR/UY)<br>→ Punta del Este → Buenos Aires → Bahía Blanca → Puerto Madryn<br>→ Comodoro Rivadavia → Río Gallegos<br>Fin (AR) → Ushuaia, Argentina<br>Fin (CL) → Puerto Williams, Chile",
-        "tech_label": "TECNOLOGÍAS UTILIZADAS",
+        "hero_subtitle": "Simulación autónoma en tiempo real: el vehículo recorre la ruta solo desde São Paulo (Mooca) hasta el Fin del Mundo con opción de pausa e inspección.",
+        "badge1": "🔋 Tesla Model 3 Long Range", "badge2": "⛽ Hyundai Tucson 2.0", "badge3": "🇧🇷 🇺🇾 🇦🇷 🇨🇱 4 Países",
+        "badge4": "~5.100 KM", "badge5": "13 Puntos Mapeados",
+        "nav_title": "Navegación de la Expedición",
+        "nav_home": "🌟 Visión General & Panel",
+        "nav_map": "🗺️ Modo Auto-Drive & Flota Animada",
+        "nav_stops": "📍 Diario de Ruta & Paradas",
+        "nav_specs": "🔬 Ficha Técnica & Costos",
+        "nav_tech": "⚙️ Metodología & Datos",
+        "m1": "Distancia Total", "m2": "Costo Estimado (Tesla)", "m3": "Costo Estimado (Tucson)", "m4": "Ahorro del Eléctrico",
+        "map_label": "MODO AUTO-DRIVE ACTIVO", "map_title": "Conducción Autónoma en Ruta: Movimiento Continuo",
+        "map_hint": "🕹️ <strong>Control:</strong> El vehículo avanza solo. Use los botones para Pausar o Reanudar.",
+        "details_label": "ESTACIONES DE LA RUTA", "details_title": "Rayos X de los Puntos de Parada",
+        "specs_label": "ANÁLISIS COMPARATIVO", "specs_title": "Costos y Desafíos",
+        "why_go_title": "¿Por qué importa esta expedición?",
+        "why_go_text": "La transición energética hacia la movilidad eléctrica.",
+        "route_overview_title": "Itinerario Completo",
+        "route_overview_text": "Inicio: São Paulo → Ushuaia → Puerto Williams.",
+        "tech_label": "TECNOLOGÍAS",
         "footer_title": "🚗 Amauri Almeida",
-        "footer_desc": "Tecnólogo en Gestión Ambiental · FATEC Jundiaí (3° ENADE)<br>Posgrado en IA, Machine Learning & Data Science · Posgrado en Ciencia de Datos & Big Data<br>Análisis y Desarrollo de Sistemas · FACINT Maringá",
+        "footer_desc": "Investigador",
         "footer_links": "📍 Brasil · Uruguay · Argentina · Chile",
     },
     "en": {
         "page_title": "Patagonia Expedition · Electric vs Combustion",
-        "hero_tag": "Field Research · Automotive & Energy · 2024–2026",
+        "hero_tag": "SCIENTIFIC FIELD RESEARCH & AUTOMOTIVE · 2024–2026",
         "hero_title": "Patagonia Expedition:\nElectric vs Combustion",
-        "hero_subtitle": "From São Paulo (Mooca) to the End of the World (Ushuaia & Puerto Williams). A real ~5,000 km route crossing 4 countries, comparing an electric Tesla Model 3 against a combustion Hyundai Tucson, point by point.",
-        "badge1": "🔋 Tesla Model 3", "badge2": "⛽ Hyundai Tucson", "badge3": "BR · UY · AR · CL",
-        "badge4": "~5,000 KM", "badge5": "13 MAPPED POINTS",
-        "protocol_title": "📋 Methodological Note:",
-        "protocol_text": "Trip costs shown are trip-level estimates based on vehicle specifications and average regional energy/fuel prices — not real-time metered billing. See breakdown in the Specs & Costs tab.",
-        "m1": "Total distance", "m2": "Estimated Tesla cost", "m3": "Estimated Tucson cost", "m4": "EV savings",
-        "tab1": "🗺️ Routes & Stop Points", "tab2": "🔬 Specs & Costs",
-        "map_label": "GEOSPATIAL VISUALIZATION", "map_title": "Route Map, Chargers (Tesla) & Gas Stations (Tucson)",
-        "map_hint": "🚗 <strong>Interaction:</strong> Click any marker to see the stop type. The car on the map travels the expedition's real route, point by point.",
-        "details_label": "BREAKDOWN", "details_title": "Coordinates & Stop Points",
-        "specs_label": "TECH SHEET", "specs_title": "Vehicle Specifications",
-        "tesla_range": "Estimated range:", "tucson_range": "Estimated range:",
-        "tesla_battery": "Battery:", "tucson_tank": "Fuel tank:",
-        "tesla_infra": "Infrastructure:", "tucson_infra": "Infrastructure:",
-        "comparison_label": "FINANCIAL ANALYSIS", "comparison_title": "Estimated Cost Comparison (USD)",
-        "why_go_title": "Why go to Patagonia?",
-        "why_go_text": "Patagonia offers unique landscapes. Traveling by car allows a deep connection with nature, crossing borders and challenging technological limits — testing, in practice, the real limits of electric mobility on a remote route.",
-        "route_overview_title": "Route Overview",
-        "route_overview_text": "Start → São Paulo (Mooca), BR<br>Waypoints → Curitiba → Florianópolis → Porto Alegre → Chuí (BR/UY border)<br>→ Punta del Este → Buenos Aires → Bahía Blanca → Puerto Madryn<br>→ Comodoro Rivadavia → Río Gallegos<br>End (AR) → Ushuaia, Argentina<br>End (CL) → Puerto Williams, Chile",
-        "tech_label": "TECHNOLOGIES USED",
+        "hero_subtitle": "Autonomous real-time simulation: the vehicle drives along the route automatically from São Paulo to the End of the World with pause and inspection options.",
+        "badge1": "🔋 Tesla Model 3 Long Range", "badge2": "⛽ Hyundai Tucson 2.0", "badge3": "🇧🇷 🇺🇾 🇦🇷 🇨🇱 4 Countries",
+        "badge4": "~5,000 KM", "badge5": "13 Mapped Points",
+        "nav_title": "Expedition Navigation",
+        "nav_home": "🌟 Overview & Dashboard",
+        "nav_map": "🗺️ Auto-Drive Mode & Animated Fleet",
+        "nav_stops": "📍 Expedition Log & Stops",
+        "nav_specs": "🔬 Tech Specs & Costs",
+        "nav_tech": "⚙️ Methodology & Data",
+        "m1": "Total Distance", "m2": "Estimated Cost (Tesla)", "m3": "Estimated Cost (Tucson)", "m4": "EV Savings",
+        "map_label": "ACTIVE AUTO-DRIVE MODE", "map_title": "Autonomous Route Driving: Continuous Motion with Pause/Play",
+        "map_hint": "🕹️ <strong>Driving Control:</strong> The vehicle drives itself along the Patagonian route. Use the buttons below to <strong>Pause</strong> or <strong>Resume</strong> the journey anytime.",
+        "details_label": "ROUTE STATIONS", "details_title": "X-Ray of Stop Points",
+        "specs_label": "COMPARATIVE ANALYSIS", "specs_title": "Costs & Challenges",
+        "why_go_title": "Why does this expedition matter?",
+        "why_go_text": "The energy transition toward electric mobility.",
+        "route_overview_title": "Complete Route Itinerary",
+        "route_overview_text": "Start: São Paulo → Ushuaia → Puerto Williams.",
+        "tech_label": "TECHNOLOGIES",
         "footer_title": "🚗 Amauri Almeida",
-        "footer_desc": "Environmental Management Technologist · FATEC Jundiaí (3rd ENADE)<br>Post-Grad in AI, Machine Learning & Data Science · Post-Grad in Data Science & Big Data<br>Systems Analysis and Development · FACINT Maringá",
+        "footer_desc": "Researcher",
         "footer_links": "📍 Brazil · Uruguay · Argentina · Chile",
-    },
+    }
 }
 
 # ============================================================
-# SELETOR DE IDIOMA — TOPO
-# ============================================================
-def render_lang_selector():
-    col_space, col_pt, col_es, col_en = st.columns([8, 1, 1, 1])
-    with col_pt:
-        if st.button("🇧🇷 PT", use_container_width=True,
-                     type="primary" if st.session_state.lang == "pt" else "secondary"):
-            st.session_state.lang = "pt"
-            st.rerun()
-    with col_es:
-        if st.button("🇪🇸 ES", use_container_width=True,
-                     type="primary" if st.session_state.lang == "es" else "secondary"):
-            st.session_state.lang = "es"
-            st.rerun()
-    with col_en:
-        if st.button("🇺🇸 EN", use_container_width=True,
-                     type="primary" if st.session_state.lang == "en" else "secondary"):
-            st.session_state.lang = "en"
-            st.rerun()
-
-render_lang_selector()
-T = TRANSLATIONS[st.session_state.lang]
-
-# ============================================================
-# ESTILOS
+# ESTILOS CSS
 # ============================================================
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500&family=DM+Mono&display=swap');
-:root{--electric:#3A7ACA;--electric-dark:#1A3A6E;--night:#17324A;--night-mid:#1E4A8A;--cream:#F7F9FC;--warm-gray:#6A7888;--danger:#8B2515;--danger-soft:#F8E3DC;--black:#0D1117;}
-html,body,[class*="css"]{font-family:'DM Sans',sans-serif;background-color:var(--cream);color:var(--black);}
-.hero-wrap{background:linear-gradient(135deg,var(--night) 0%,var(--electric-dark) 60%,var(--night-mid) 100%);border-radius:20px;padding:3rem 2.5rem 2rem;margin-bottom:2rem;position:relative;overflow:hidden;}
-.hero-wrap::before{content:"🚗";font-size:180px;position:absolute;right:-20px;top:-20px;opacity:0.06;}
-.hero-tag{background:var(--electric);color:white;font-family:'DM Mono',monospace;font-size:0.7rem;font-weight:bold;letter-spacing:2px;padding:4px 12px;border-radius:4px;display:inline-block;margin-bottom:1rem;text-transform:uppercase;}
-.hero-title{font-family:'Playfair Display',serif;font-size:2.8rem;font-weight:900;color:#fff;line-height:1.15;margin-bottom:0.8rem;white-space:pre-line;}
-.hero-subtitle{font-size:1rem;color:rgba(255,255,255,0.75);max-width:600px;line-height:1.6;margin-bottom:1.5rem;}
-.hero-badges{display:flex;gap:10px;flex-wrap:wrap;}
-.badge{background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.2);color:rgba(255,255,255,0.85);font-size:0.72rem;font-family:'DM Mono',monospace;padding:5px 12px;border-radius:20px;letter-spacing:0.5px;}
-.badge-electric{background:rgba(58,122,202,0.25);border-color:var(--electric);color:#BFDBFF;}
-.metric-box{background:white;border-radius:16px;padding:1.4rem 1.2rem;border-top:4px solid var(--electric);box-shadow:0 2px 12px rgba(0,0,0,0.06);text-align:center;}
-.metric-box.danger{border-top-color:var(--danger);}
-.metric-box.forest{border-top-color:#2D7A3A;}
-.metric-val{font-family:'Playfair Display',serif;font-size:2.1rem;font-weight:900;color:var(--electric-dark);line-height:1;margin-bottom:0.3rem;}
-.metric-label{font-size:0.75rem;color:var(--warm-gray);text-transform:uppercase;letter-spacing:1px;}
-.section-label{font-family:'DM Mono',monospace;font-size:0.65rem;color:var(--electric);text-transform:uppercase;letter-spacing:3px;margin-bottom:0.3rem;}
-.section-title{font-family:'Playfair Display',serif;font-size:1.9rem;font-weight:700;color:var(--electric-dark);margin-bottom:1.2rem;line-height:1.2;}
-.info-card{background:white;border-radius:16px;padding:1.5rem;box-shadow:0 2px 12px rgba(0,0,0,0.05);border-left:4px solid var(--electric);margin-bottom:1rem;}
-.info-card.danger{border-left-color:var(--danger);}
-.alert-box{background:#EAF1FB;border-left:4px solid var(--electric);border-radius:8px;padding:1rem 1.2rem;margin:1rem 0;font-size:0.9rem;}
-.source-badges{display:flex;gap:8px;flex-wrap:wrap;margin-top:0.8rem;}
-.source-badge{background:var(--electric-dark);color:white;font-family:'DM Mono',monospace;font-size:0.65rem;padding:4px 10px;border-radius:4px;letter-spacing:1px;text-transform:uppercase;}
-.footer-wrap{background:var(--electric-dark);border-radius:20px;padding:2rem;color:rgba(255,255,255,0.8);text-align:center;margin-top:3rem;}
-.footer-title{font-family:'Playfair Display',serif;color:#6FA8FF;font-size:1.2rem;margin-bottom:0.5rem;}
-.map-hint-icon{font-size:1rem;}
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=JetBrains+Mono&display=swap');
+
+:root {
+    --primary: #1b3b6f;
+    --primary-light: #218380;
+    --accent: #ffb703;
+    --ice: #e0fbfc;
+    --dark: #0b132b;
+    --card-bg: #ffffff;
+    --text-main: #1d3557;
+    --text-muted: #64748b;
+    --danger: #e63946;
+    --success: #2a9d8f;
+}
+
+html, body, [class*="css"] {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    color: var(--text-main);
+}
+
+.stApp {
+    background: linear-gradient(180deg, #f8fafc 0%, #edf2f7 100%);
+}
+
+[data-testid="stSidebar"] {
+    background: linear-gradient(180deg, #0b132b 0%, #1b3b6f 100%);
+    color: white;
+}
+[data-testid="stSidebar"] .stRadio label {
+    color: #e2e8f0 !important;
+    font-weight: 500;
+}
+
+.hero-wrap {
+    background: linear-gradient(135deg, #0b132b 0%, #1b3b6f 50%, #218380 100%);
+    border-radius: 24px;
+    padding: 3.5rem 3rem;
+    margin-bottom: 2rem;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 20px 40px rgba(11, 19, 43, 0.25);
+}
+.hero-wrap::after {
+    content: "🚗";
+    font-size: 160px;
+    position: absolute;
+    right: 20px;
+    bottom: -30px;
+    opacity: 0.15;
+}
+.hero-tag {
+    background: rgba(255, 183, 3, 0.2);
+    color: #ffb703;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 2px;
+    padding: 6px 14px;
+    border-radius: 6px;
+    display: inline-block;
+    margin-bottom: 1.2rem;
+    border: 1px solid rgba(255, 183, 3, 0.4);
+}
+.hero-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 3rem;
+    font-weight: 900;
+    color: #ffffff;
+    line-height: 1.15;
+    margin-bottom: 1rem;
+    white-space: pre-line;
+}
+.hero-subtitle {
+    font-size: 1.05rem;
+    color: rgba(255, 255, 255, 0.85);
+    max-width: 720px;
+    line-height: 1.6;
+    margin-bottom: 1.8rem;
+}
+.hero-badges {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+.badge {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #ffffff;
+    font-size: 0.78rem;
+    font-family: 'JetBrains Mono', monospace;
+    padding: 6px 14px;
+    border-radius: 30px;
+}
+.badge-highlight {
+    background: rgba(42, 157, 143, 0.3);
+    border-color: #2a9d8f;
+    color: #99f6e4;
+}
+
+.metric-box {
+    background: var(--card-bg);
+    border-radius: 18px;
+    padding: 1.5rem;
+    border-top: 4px solid var(--primary-light);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.04);
+    text-align: center;
+}
+.metric-box.danger { border-top-color: var(--danger); }
+.metric-box.success { border-top-color: var(--success); }
+.metric-val {
+    font-family: 'Playfair Display', serif;
+    font-size: 2.2rem;
+    font-weight: 900;
+    color: var(--primary);
+    line-height: 1.1;
+    margin-bottom: 0.4rem;
+}
+.metric-label {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    font-weight: 600;
+}
+
+.section-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--primary-light);
+    text-transform: uppercase;
+    letter-spacing: 3px;
+    margin-bottom: 0.4rem;
+    font-weight: 700;
+}
+.section-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--primary);
+    margin-bottom: 1.5rem;
+}
+
+.info-card {
+    background: var(--card-bg);
+    border-radius: 18px;
+    padding: 1.8rem;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.04);
+    border-left: 5px solid var(--primary-light);
+    margin-bottom: 1.2rem;
+}
+.alert-box {
+    background: #e0fbfc;
+    border-left: 5px solid var(--primary-light);
+    border-radius: 12px;
+    padding: 1.2rem 1.5rem;
+    margin: 1.2rem 0;
+    font-size: 0.92rem;
+    color: #0b132b;
+}
+
+.footer-wrap {
+    background: linear-gradient(135deg, #0b132b 0%, #1b3b6f 100%);
+    border-radius: 20px;
+    padding: 2.5rem;
+    color: rgba(255, 255, 255, 0.85);
+    text-align: center;
+    margin-top: 4rem;
+}
+.footer-title {
+    font-family: 'Playfair Display', serif;
+    color: #ffb703;
+    font-size: 1.4rem;
+    margin-bottom: 0.6rem;
+}
 </style>
 """, unsafe_allow_html=True)
+
+# ============================================================
+# SIDEBAR
+# ============================================================
+with st.sidebar:
+    st.markdown("### 🌐 Idioma / Language")
+    selected_lang = st.selectbox(
+        "Selecione o idioma:",
+        options=["pt", "es", "en"],
+        format_func=lambda x: {"pt": "🇧🇷 Português", "es": "🇪🇸 Español", "en": "🇺🇸 English"}[x],
+        index=["pt", "es", "en"].index(st.session_state.lang)
+    )
+    if selected_lang != st.session_state.lang:
+        st.session_state.lang = selected_lang
+        st.rerun()
+
+    T = TRANSLATIONS[st.session_state.lang]
+
+    st.markdown("---")
+    st.markdown(f"### {T['nav_title']}")
+    nav_choice = st.radio(
+        "Navegação",
+        options=[T["nav_home"], T["nav_map"], T["nav_stops"], T["nav_specs"], T["nav_tech"]],
+        label_visibility="collapsed"
+    )
+
+    st.markdown("---")
+    st.markdown("### 🚗 Frota Auto-Drive")
+    st.info("🔋 **Tesla Model 3** (Autônomo)\n\n⛽ **Hyundai Tucson** (Autônomo)")
+    st.markdown("---")
+    st.markdown("### 🇦🇺 Rota Transnacional")
+    st.markdown("🇧🇷 **Brasil** ➔ 🇺🇾 **Uruguai** ➔ 🇦🇷 **Argentina** ➔ 🇨🇱 **Chile**")
+
+# ============================================================
+# DADOS E IMAGENS
+# ============================================================
+@st.cache_data
+def load_route_data():
+    path = "route_data_enhanced.json"
+    if os.path.exists(path):
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return []
+
+route_data = load_route_data()
+
+@st.cache_data(ttl=86400, show_spinner=False)
+def load_economics(refresh_online=True):
+    """Carrega o snapshot local e tenta atualizar fontes públicas no máximo uma vez por dia."""
+    with open("route_economics.json", "r", encoding="utf-8") as f:
+        data = json.load(f)
+    data["runtime"] = {
+        "loaded_at": datetime.now(timezone.utc).astimezone().strftime("%d/%m/%Y %H:%M"),
+        "online_attempted": bool(refresh_online),
+        "online_updates": [],
+        "online_errors": []
+    }
+    if not refresh_online:
+        return data
+
+    headers = {"User-Agent": "Road-to-Patagonia/2.0 (research dashboard)"}
+
+    def parse_number(value):
+        value = str(value).strip()
+        if "," in value and "." in value:
+            if value.rfind(",") > value.rfind("."):
+                value = value.replace(".", "").replace(",", ".")
+            else:
+                value = value.replace(",", "")
+        elif "," in value:
+            value = value.replace(",", ".")
+        return float(value)
+
+    def update_gpp(code, fuel, url, currency, label):
+        try:
+            html = requests.get(url, headers=headers, timeout=3).text
+            text = re.sub(r"\s+", " ", html.replace("&nbsp;", " "))
+            pattern = rf"The current {fuel} price in .*? is {currency}\s*([0-9,.]+) per liter.*?updated on ([0-9]{{2}}-[A-Za-z]{{3}}-[0-9]{{4}})"
+            match = re.search(pattern, text, flags=re.I)
+            if match:
+                data["prices"][code][fuel] = parse_number(match.group(1))
+                data["prices"][code]["collected_at"] = datetime.strptime(match.group(2), "%d-%b-%Y").strftime("%Y-%m-%d")
+                data["prices"][code]["source"] = label
+                data["prices"][code]["source_url"] = url
+                data["runtime"]["online_updates"].append(f"{code}:{fuel}")
+        except Exception as exc:
+            data["runtime"]["online_errors"].append(f"{code}:{fuel}:{type(exc).__name__}")
+
+    gpp_tasks = [
+        ("BR", "gasoline", "https://www.globalpetrolprices.com/Brazil/gasoline_prices/", "BRL", "GlobalPetrolPrices / referência ANP"),
+        ("AR", "gasoline", "https://www.globalpetrolprices.com/Argentina/gasoline_prices/", "ARS", "GlobalPetrolPrices / Secretaría de Energía"),
+        ("CL", "gasoline", "https://www.globalpetrolprices.com/Chile/gasoline_prices/", "CLP", "GlobalPetrolPrices / CNE"),
+        ("CL", "diesel", "https://www.globalpetrolprices.com/Chile/diesel_prices/", "CLP", "GlobalPetrolPrices / CNE")
+    ]
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        futures = [pool.submit(update_gpp, *task) for task in gpp_tasks]
+        for future in futures:
+            future.result()
+
+    try:
+        html = requests.get("https://www.ancap.com.uy/10564/1/historico-precios-combustibles.html", headers=headers, timeout=3).text
+        text = re.sub(r"\s+", " ", html)
+        row = re.search(r"01/08/2026\s+([0-9]+,[0-9]+)\s+([0-9]+,[0-9]+)\s+([0-9]+,[0-9]+)", text)
+        if row:
+            data["prices"]["UY"]["gasoline"] = parse_number(row.group(1))
+            data["prices"]["UY"]["diesel"] = parse_number(row.group(3))
+            data["prices"]["UY"]["collected_at"] = "2026-08-01"
+            data["runtime"]["online_updates"].append("UY:ANCAP")
+    except Exception as exc:
+        data["runtime"]["online_errors"].append(f"UY:ANCAP:{type(exc).__name__}")
+    return data
+
+with st.sidebar:
+    refresh_online = st.checkbox("🔄 Tentar atualização diária das fontes", value=True, help="Consulta fontes públicas quando disponível. Os dados são armazenados em cache por 24 horas e preservam o último snapshot se uma fonte falhar.")
+    if st.button("Atualizar preços agora"):
+        load_economics.clear()
+        st.rerun()
+
+economics = load_economics(refresh_online)
+
+with st.sidebar:
+    st.markdown("### 💱 Câmbio de referência")
+    st.caption("Edite para aproximar a simulação da data da sua viagem. Os preços continuam exibidos na moeda local.")
+    fx = {
+        "BR": st.number_input("1 USD em BRL", min_value=0.01, value=5.50, step=0.05, key="fx_brl"),
+        "UY": st.number_input("1 USD em UYU", min_value=0.01, value=40.00, step=0.50, key="fx_uyu"),
+        "AR": st.number_input("1 USD em ARS", min_value=0.01, value=1485.00, step=10.00, key="fx_ars"),
+        "CL": st.number_input("1 USD em CLP", min_value=0.01, value=910.00, step=5.00, key="fx_clp")
+    }
+
+COUNTRY_CODE = {
+    "Brasil": "BR", "Brasil / Uruguai": "BR", "Uruguai": "UY",
+    "Argentina": "AR", "Chile": "CL"
+}
+
+
+def country_for_stop(stop):
+    country = stop.get("country", "")
+    if country == "Brasil / Uruguai":
+        return "UY" if stop.get("id", 0) >= 5 else "BR"
+    return COUNTRY_CODE.get(country, "AR")
+
+
+def distance_km(value):
+    match = re.search(r"([0-9,.]+)", str(value))
+    return float(match.group(1).replace(".", "").replace(",", ".")) if match else 0.0
+
+
+def money(value, code):
+    symbols = {"BR": "R$", "UY": "$U", "AR": "$", "CL": "$"}
+    decimals = 0 if code in {"AR", "CL"} else 2
+    return f"{symbols.get(code, '')} {value:,.{decimals}f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+
+def usd(value, code):
+    return value / fx[code]
+
+
+def build_segment_costs(route, econ):
+    assumptions = econ["assumptions"]
+    rows = []
+    previous = None
+    for stop in route:
+        total_km = distance_km(stop.get("distance_from_start", "0"))
+        if previous is None:
+            previous = {"name": stop["name"], "total_km": total_km, "code": country_for_stop(stop)}
+            continue
+        code = country_for_stop(stop)
+        # A fronteira Chuí passa a ser tratada como Uruguai a partir da parada 5.
+        km = max(total_km - previous["total_km"], 0)
+        is_water_crossing = previous["name"].startswith("Ushuaia") and stop["name"].startswith("Puerto Williams")
+        drive_km = 0 if is_water_crossing else km
+        price = econ["prices"][code]
+        tucson_l = drive_km / assumptions["tucson_km_per_litre"]
+        tesla_kwh = drive_km * assumptions["tesla_kwh_per_100km"] / 100 * (1 + assumptions["tesla_charge_loss"])
+        gas_cost = tucson_l * price["gasoline"]
+        ev_cost = tesla_kwh * price["electricity_kwh"]
+        rows.append({
+            "Trecho": f"{previous['name']} → {stop['name']}",
+            "Destino": stop["name"],
+            "País": price["country"],
+            "Moeda": price["currency"],
+            "km": km,
+            "drive_km": drive_km,
+            "modal": "Água / ferry" if is_water_crossing else "Rodovia",
+            "gas_price": price["gasoline"],
+            "elec_price": price["electricity_kwh"],
+            "gas_cost": gas_cost,
+            "ev_cost": ev_cost,
+            "gas_l": tucson_l,
+            "tesla_kwh": tesla_kwh,
+            "tucson_co2": tucson_l * assumptions["gasoline_co2_kg_per_litre"],
+            "tesla_co2": tesla_kwh * assumptions["grid_co2_kg_per_kwh"][code],
+            "price_date": price["collected_at"],
+            "price_source": price["source"],
+            "code": code
+        })
+        previous = {"name": stop["name"], "total_km": total_km, "code": code}
+    return pd.DataFrame(rows)
+
+
+def ferry_costs(econ):
+    records = []
+    for ferry in econ["ferries"]:
+        code = "AR" if ferry["currency"] == "ARS" else None
+        vehicle_cost = ferry.get("indicative_vehicle_fare", 0)
+        passenger_cost = ferry.get("passenger_fare", 0) + ferry.get("port_fee", 0)
+        records.append({
+            "Travessia": ferry["name"],
+            "Trecho": ferry["route"],
+            "Operador": ferry["operator"],
+            "Veículo embarca": "Sim" if ferry.get("vehicle_included") else "Não",
+            "Tarifa veículo": money(vehicle_cost, code) if code else "—",
+            "Passageiro + taxa": f"US$ {passenger_cost:,.0f}" if passenger_cost else "—",
+            "Duração": f"{ferry['duration_minutes']} min",
+            "Status": ferry["status"]
+        })
+    return pd.DataFrame(records)
+
+
+def get_image_base64(path):
+    if os.path.exists(path):
+        with open(path, "rb") as img_file:
+            return base64.b64encode(img_file.read()).decode('utf-8')
+    return ""
+
+img_tesla_front = f"data:image/png;base64,{get_image_base64('tesla_front.png')}"
+img_tesla_back = f"data:image/png;base64,{get_image_base64('tesla_back.png')}"
+img_tucson_front = f"data:image/png;base64,{get_image_base64('tucson_front.png')}"
+img_tucson_back = f"data:image/png;base64,{get_image_base64('tucson_back.png')}"
+
+segment_df = build_segment_costs(route_data, economics)
+if not segment_df.empty:
+    total_tucson_cost = float(segment_df["gas_cost"].sum())
+    total_tesla_cost = float(segment_df["ev_cost"].sum())
+    total_tucson_co2 = float(segment_df["tucson_co2"].sum())
+    total_tesla_co2 = float(segment_df["tesla_co2"].sum())
+else:
+    total_tucson_cost = total_tesla_cost = total_tucson_co2 = total_tesla_co2 = 0.0
+
+total_tesla_usd_home = sum(usd(v, c) for v, c in zip(segment_df["ev_cost"], segment_df["code"])) if not segment_df.empty else 0.0
+total_tucson_usd_home = sum(usd(v, c) for v, c in zip(segment_df["gas_cost"], segment_df["code"])) if not segment_df.empty else 0.0
 
 # ============================================================
 # HERO
@@ -173,8 +543,8 @@ st.markdown(f"""
     <div class="hero-title">{T['hero_title']}</div>
     <div class="hero-subtitle">{T['hero_subtitle']}</div>
     <div class="hero-badges">
-        <span class="badge badge-electric">{T['badge1']}</span>
-        <span class="badge badge-electric">{T['badge2']}</span>
+        <span class="badge badge-highlight">{T['badge1']}</span>
+        <span class="badge badge-highlight">{T['badge2']}</span>
         <span class="badge">{T['badge3']}</span>
         <span class="badge">{T['badge4']}</span>
         <span class="badge">{T['badge5']}</span>
@@ -182,81 +552,148 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-st.markdown(f"""<div class="alert-box"><strong>{T['protocol_title']}</strong> {T['protocol_text']}</div>""", unsafe_allow_html=True)
+# ── SEÇÃO 1: HOME ───────────────────────────────────────────
+if nav_choice == T["nav_home"]:
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.markdown(f'<div class="metric-box"><div class="metric-val">~5.100 km</div><div class="metric-label">{T["m1"]}</div></div>', unsafe_allow_html=True)
+    with col2:
+        st.markdown(f'<div class="metric-box success"><div class="metric-val">US$ {total_tesla_usd_home:,.0f}</div><div class="metric-label">{T["m2"]}</div></div>'.replace(",", "."), unsafe_allow_html=True)
+    with col3:
+        st.markdown(f'<div class="metric-box danger"><div class="metric-val">US$ {total_tucson_usd_home:,.0f}</div><div class="metric-label">{T["m3"]}</div></div>'.replace(",", "."), unsafe_allow_html=True)
+    with col4:
+        st.markdown(f'<div class="metric-box"><div class="metric-val">2.7×</div><div class="metric-label">{T["m4"]}</div></div>', unsafe_allow_html=True)
 
-col1, col2, col3, col4 = st.columns(4)
-with col1: st.markdown(f'<div class="metric-box"><div class="metric-val">~5.000 km</div><div class="metric-label">{T["m1"]}</div></div>', unsafe_allow_html=True)
-with col2: st.markdown(f'<div class="metric-box forest"><div class="metric-val">$450</div><div class="metric-label">{T["m2"]}</div></div>', unsafe_allow_html=True)
-with col3: st.markdown(f'<div class="metric-box danger"><div class="metric-val">$1.200</div><div class="metric-label">{T["m3"]}</div></div>', unsafe_allow_html=True)
-with col4: st.markdown(f'<div class="metric-box"><div class="metric-val">2.7×</div><div class="metric-label">{T["m4"]}</div></div>', unsafe_allow_html=True)
+    st.markdown("<br>", unsafe_allow_html=True)
 
-st.markdown("<br>", unsafe_allow_html=True)
+    col_l, col_r = st.columns([1.2, 1])
+    with col_l:
+        st.markdown(f'<div class="section-label">CONTEXTO DA PESQUISA</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="section-title">{T["why_go_title"]}</div>', unsafe_allow_html=True)
+        st.markdown(f"""
+        <div class="info-card">
+            <p style="line-height: 1.7; font-size: 0.98rem; color: #1d3557;">
+            {T['why_go_text']}
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
 
-# ============================================================
-# ABAS
-# ============================================================
-tab1, tab2 = st.tabs([T['tab1'], T['tab2']])
+    with col_r:
+        st.markdown(f'<div class="section-label">ROTA MUNDIAL DO FIM DO MUNDO</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="section-title">De São Paulo à Isla Navarino</div>', unsafe_allow_html=True)
+        st.markdown(f"""
+        <div class="info-card" style="border-left-color: #218380;">
+            <strong>{T['route_overview_title']}</strong><br><br>
+            <p style="font-size: 0.9rem; color: #334155; line-height: 1.6;">
+            {T['route_overview_text']}
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
 
-# ── TAB 1: MAPA ──────────────────────────────────────────────
-with tab1:
+# ── SEÇÃO 2: MODO AUTO-DRIVE COM PAUSE/PLAY & INTERATIVIDADE ──────────────
+elif nav_choice == T["nav_map"]:
     st.markdown(f'<div class="section-label">{T["map_label"]}</div>', unsafe_allow_html=True)
     st.markdown(f'<div class="section-title">{T["map_title"]}</div>', unsafe_allow_html=True)
-    st.markdown(f'<div class="info-card">{T["map_hint"]}</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="alert-box">{T["map_hint"]}</div>', unsafe_allow_html=True)
 
-    if os.path.exists('route_data.json'):
-        with open('route_data.json', 'r') as f:
-            route_data = json.load(f)
+    col_c1, col_c2 = st.columns(2)
+    with col_c1:
+        selected_car = st.selectbox(
+            "🚗 Selecione o Veículo Autônomo:",
+            options=["Tesla Model 3 Long Range", "Hyundai Tucson 2.0"],
+            format_func=lambda x: "🔋 Tesla Model 3 (Elétrico Autônomo)" if "Tesla" in x else "⛽ Hyundai Tucson (Combustão Autônomo)"
+        )
+    with col_c2:
+        selected_direction = st.selectbox(
+            "🔄 Sentido da Viagem Auto-Drive:",
+            options=["Ida (São Paulo ➔ Ushuaia / Puerto Williams)", "Volta (Puerto Williams / Ushuaia ➔ São Paulo)"],
+            format_func=lambda x: "⬇️ Rumo ao Fim do Mundo (De Frente)" if "Ida" in x else "⬆️ Retorno a São Paulo (De Costas)"
+        )
 
-        m = folium.Map(location=[-38, -60], zoom_start=4, tiles='CartoDB positron')
+    if route_data:
+        is_tesla = "Tesla" in selected_car
+        is_outbound = "Ida" in selected_direction
+
+        if is_tesla:
+            car_img_data = img_tesla_front if is_outbound else img_tesla_back
+        else:
+            car_img_data = img_tucson_front if is_outbound else img_tucson_back
 
         points = [[c['lat'], c['lon']] for c in route_data]
+        if not is_outbound:
+            points = list(reversed(points))
 
-        # Trajeto de base (linha sólida discreta)
-        folium.PolyLine(points, color="#1A3A6E", weight=2, opacity=0.35).add_to(m)
+        m = folium.Map(location=[-40, -62], zoom_start=4, tiles='CartoDB positron')
 
-        # Trajeto "formiga" — sensação de movimento constante ao longo da rota
+        folium.PolyLine(points, color="#1b3b6f", weight=3, opacity=0.4, tooltip="Rota da Expedição").add_to(m)
+
         AntPath(
             points,
-            color="#3A7ACA",
-            weight=4,
-            opacity=0.9,
-            delay=800,
-            dash_array=[12, 20],
-            pulse_color="#FFFFFF",
-            tooltip="Trajeto Geral da Expedição"
+            color="#218380" if is_outbound else "#e63946",
+            weight=5,
+            opacity=0.85,
+            delay=1200,
+            dash_array=[15, 25],
+            pulse_color="#ffffff",
+            tooltip="Malha Rodoviária Ativa"
         ).add_to(m)
 
-        # Mapeamento dinâmico de ícones por tipo de parada no JSON
-        for city in route_data:
-            icon_type = "info-sign"
-            color_type = "orange"
-            prefix_type = "glyphicon"
+        for stop in route_data:
+            icon_name, icon_color, prefix_val = "info-sign", "blue", "glyphicon"
+            if stop['type'] == "Start":
+                icon_name, icon_color = "play", "green"
+            elif "End" in stop['type']:
+                icon_name, icon_color = "flag", "red"
+            elif "Tesla" in stop['type'] or "Grid" in stop['type']:
+                icon_name, icon_color = "flash", "cadetblue"
+            elif "Gas" in stop['type'] or "Fuel" in stop['type']:
+                icon_name, icon_color = "gas-pump", "orange", "fa"
 
-            if city['type'] == "Start":
-                icon_type, color_type = "play", "green"
-            elif "End" in city['type']:
-                icon_type, color_type = "flag", "red"
-            elif city['type'] in ["Tesla Charging", "Eletroposto"]:
-                icon_type, color_type = "flash", "blue"
-            elif city['type'] in ["Gas Station", "Posto Gasolina", "Posto", "Gas"]:
-                icon_type, color_type = "gas-pump", "cadetblue"
-                prefix_type = "fa"
-            elif city['type'] == "Tesla/Gas":
-                icon_type, color_type = "refresh", "purple"
-
+            popup_html = f"""
+            <div style="font-family: 'Plus Jakarta Sans'; width: 220px; padding: 5px;">
+                <h4 style="margin: 0 0 5px 0; color: #1b3b6f; font-family: 'Playfair Display';">{stop['name']}</h4>
+                <p style="margin: 3px 0; font-size: 12px;"><b>País:</b> {stop['country']}</p>
+                <p style="margin: 3px 0; font-size: 12px;"><b>Distância:</b> {stop['distance_from_start']}</p>
+                <p style="margin: 3px 0; font-size: 12px; color: #218380;"><i>{stop['highlights']}</i></p>
+            </div>
+            """
             folium.Marker(
-                [city['lat'], city['lon']],
-                popup=f"<b>{city['name']}</b><br>Tipo: {city['type']}",
-                tooltip=f"{city['name']} ({city['type']})",
-                icon=folium.Icon(color=color_type, icon=icon_type, prefix=prefix_type)
+                [stop['lat'], stop['lon']],
+                popup=folium.Popup(popup_html, max_width=250),
+                tooltip=f"#{stop['id']} - {stop['name']}",
+                icon=folium.Icon(color=icon_color, icon=icon_name, prefix=prefix_val)
             ).add_to(m)
 
-        # ── CARRO TESLA ANIMADO PERCORRENDO O TRAJETO REAL ──────
+        # Script JS com Auto-Drive (Loop automático) e botões de Pause / Resume inspirados na referência do Globo
         route_js_points = json.dumps(points)
         car_animation_js = f"""
+        <div id="autodrive-controls" style="margin-bottom: 10px; display: flex; gap: 10px; align-items: center; background: #ffffff; padding: 10px 15px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.05);">
+            <span style="font-family: 'JetBrains Mono'; font-size: 12px; font-weight: 700; color: #1b3b6f;">🎮 CONTROLE AUTO-DRIVE:</span>
+            <button id="btnPause" onclick="toggleDrive()" style="background: #e63946; color: white; border: none; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 12px;">⏸️ Pausar Viagem</button>
+            <span id="driveStatus" style="font-size: 12px; color: #2a9d8f; font-weight: 600;">Status: Veículo andando sozinho 🚗💨</span>
+        </div>
+
         <script>
+        var isDriving = true;
+        function toggleDrive() {{
+            isDriving = !isDriving;
+            var btn = document.getElementById('btnPause');
+            var status = document.getElementById('driveStatus');
+            if (isDriving) {{
+                btn.style.background = '#e63946';
+                btn.innerHTML = '⏸️ Pausar Viagem';
+                status.style.color = '#2a9d8f';
+                status.innerHTML = 'Status: Veículo andando sozinho 🚗💨';
+            }} else {{
+                btn.style.background = '#2a9d8f';
+                btn.innerHTML = '▶️ Retomar Viagem';
+                status.style.color = '#e63946';
+                status.innerHTML = 'Status: Viagem pausada (Clique nos marcadores para inspecionar) 🛑';
+            }}
+        }}
+
         (function() {{
-            function initCarAnimation() {{
+            function initAutoDrive() {{
                 var mapContainer = null;
                 var mapKeys = Object.keys(window).filter(function(k) {{ return k.indexOf('map_') === 0; }});
                 for (var i = 0; i < mapKeys.length; i++) {{
@@ -264,134 +701,223 @@ with tab1:
                         mapContainer = window[mapKeys[i]];
                     }}
                 }}
-                if (!mapContainer) {{ setTimeout(initCarAnimation, 300); return; }}
+                if (!mapContainer) {{ setTimeout(initAutoDrive, 300); return; }}
 
                 var routePoints = {route_js_points};
                 var carIcon = L.divIcon({{
-                    html: '<div style="font-size:26px; transform: translate(-50%,-50%); filter: drop-shadow(0 2px 3px rgba(0,0,0,0.45));">🚗</div>',
-                    className: 'tesla-car-icon',
-                    iconSize: [26, 26],
-                    iconAnchor: [13, 13]
+                    html: '<div style="background: rgba(255,255,255,0.95); padding: 4px; border-radius: 50%; box-shadow: 0 4px 12px rgba(0,0,0,0.35);"><img src="{car_img_data}" style="width: 55px; height: 38px; object-fit: contain; transform: translate(-50%, -50%); display: block;" /></div>',
+                    className: 'custom-car-autodrive',
+                    iconSize: [55, 38],
+                    iconAnchor: [27, 19]
                 }});
-                var carMarker = L.marker(routePoints[0], {{icon: carIcon, zIndexOffset: 1000}}).addTo(mapContainer);
+
+                var carMarker = L.marker(routePoints[0], {{icon: carIcon, zIndexOffset: 3000}}).addTo(mapContainer);
 
                 var segIndex = 0;
-                var steps = 60;
+                var steps = 140; // Ritmo suave e devagar
                 var stepCount = 0;
 
                 function lerp(a, b, t) {{ return a + (b - a) * t; }}
 
-                function animate() {{
-                    var start = routePoints[segIndex];
-                    var end = routePoints[(segIndex + 1) % routePoints.length];
-                    var progress = stepCount / steps;
-                    var lat = lerp(start[0], end[0], progress);
-                    var lon = lerp(start[1], end[1], progress);
-                    carMarker.setLatLng([lat, lon]);
+                function driveStep() {{
+                    if (isDriving) {{
+                        var start = routePoints[segIndex];
+                        var end = routePoints[(segIndex + 1) % routePoints.length];
+                        var progress = stepCount / steps;
+                        var lat = lerp(start[0], end[0], progress);
+                        var lon = lerp(start[1], end[1], progress);
+                        carMarker.setLatLng([lat, lon]);
 
-                    stepCount++;
-                    if (stepCount > steps) {{
-                        stepCount = 0;
-                        segIndex = (segIndex + 1) % routePoints.length;
+                        stepCount++;
+                        if (stepCount > steps) {{
+                            stepCount = 0;
+                            segIndex = (segIndex + 1) % routePoints.length; // Loop infinito automático
+                        }}
                     }}
-                    setTimeout(function() {{ requestAnimationFrame(animate); }}, 40);
+                    setTimeout(function() {{ requestAnimationFrame(driveStep); }}, 90);
                 }}
-                animate();
+                driveStep();
             }}
-            setTimeout(initCarAnimation, 500);
+            setTimeout(initAutoDrive, 600);
         }})();
         </script>
         """
         m.get_root().html.add_child(folium.Element(car_animation_js))
+        st_folium(m, width=1250, height=620)
+    else:
+        st.error("Dados da rota não encontrados.")
 
-        st_folium(m, width=1200, height=550)
+# ── SEÇÃO 3: PARADAS ───────────────────────────────────────
+elif nav_choice == T["nav_stops"]:
+    st.markdown(f'<div class="section-label">{T["details_label"]}</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="section-title">{T["details_title"]}</div>', unsafe_allow_html=True)
+    st.markdown('<div class="alert-box">Cada parada combina contexto geográfico, infraestrutura, preços de referência e os riscos operacionais do próximo trecho. Clique também nos marcadores do mapa para abrir o mesmo contexto durante o Auto-Drive.</div>', unsafe_allow_html=True)
 
-        st.markdown(f'<div class="section-label" style="margin-top:1.5rem">{T["details_label"]}</div>', unsafe_allow_html=True)
-        st.markdown(f'<div class="section-title" style="font-size:1.4rem">{T["details_title"]}</div>', unsafe_allow_html=True)
-        df_route = pd.DataFrame(route_data)
-        st.dataframe(df_route[['name', 'lat', 'lon', 'type']], use_container_width=True)
+    selected_stop = st.selectbox("Selecione uma parada da expedição:", options=[s['name'] for s in route_data])
+    stop_info = next((s for s in route_data if s['name'] == selected_stop), route_data[0])
+    stop_row = segment_df[segment_df["Destino"] == selected_stop].iloc[0] if not segment_df[segment_df["Destino"] == selected_stop].empty else None
+    code = country_for_stop(stop_info)
+    price = economics["prices"][code]
 
+    col_a, col_b = st.columns([1.15, 1])
+    with col_a:
         st.markdown(f"""
-        <div class="info-card" style="margin-top:1rem">
-            <strong>{T['route_overview_title']}</strong><br><br>
-            <div style="font-size:0.9rem;color:#3D4D5A;line-height:1.8">{T['route_overview_text']}</div>
+        <div class="info-card">
+            <h3>📍 #{stop_info['id']} — {stop_info['name']}</h3>
+            <p><b>País / moeda:</b> {stop_info['country']} · {price['currency']}</p>
+            <p><b>Distância acumulada:</b> {stop_info['distance_from_start']}</p>
+            <p><b>Elevação:</b> {stop_info['elevation']}</p>
+            <p><b>Clima:</b> verão {stop_info['climate_summer']} · inverno {stop_info['climate_winter']}</p>
+            <p><b>Recarga:</b> {stop_info['charging_infra']}</p>
+            <p><b>Combustível:</b> {stop_info['gas_infra']}</p>
         </div>
         """, unsafe_allow_html=True)
-    else:
-        st.error("Arquivo 'route_data.json' não encontrado no diretório do projeto.")
+    with col_b:
+        st.markdown(f"""
+        <div class="info-card" style="border-left-color: #ffb703;">
+            <h3>🔍 Contexto de campo</h3>
+            <p>{stop_info['highlights']}</p>
+            <p><b>Desafio logístico:</b> {stop_info['logistics']}</p>
+        </div>
+        """, unsafe_allow_html=True)
 
-# ── TAB 2: ESPECIFICAÇÕES & CUSTOS ──────────────────────────
-with tab2:
+    p1, p2, p3, p4 = st.columns(4)
+    with p1:
+        st.metric("Gasolina/nafta", money(price["gasoline"], code) + "/L")
+    with p2:
+        st.metric("Diesel/gasoil", money(price["diesel"], code) + "/L")
+    with p3:
+        st.metric("Recarga pública", money(price["electricity_kwh"], code) + "/kWh")
+    with p4:
+        st.metric("Data do preço", price["collected_at"])
+
+    if stop_row is not None:
+        st.markdown("#### Custos estimados do trecho que chega a esta parada")
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("Distância", f"{stop_row['km']:,.0f} km".replace(",", "."))
+        c2.metric("Tucson", money(stop_row["gas_cost"], code))
+        c3.metric("Tesla", money(stop_row["ev_cost"], code))
+        c4.metric("CO₂ evitado", f"{max(stop_row['tucson_co2'] - stop_row['tesla_co2'], 0):,.0f} kg".replace(",", "."))
+    else:
+        st.info("Esta é a origem da expedição; o primeiro trecho começa aqui.")
+
+# ── SEÇÃO 4: SPECS & CUSTOS ────────────────────────────────
+elif nav_choice == T["nav_specs"]:
     st.markdown(f'<div class="section-label">{T["specs_label"]}</div>', unsafe_allow_html=True)
-    st.markdown(f'<div class="section-title">{T["specs_title"]}</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-title">Dossiê Financeiro, Energético e Ambiental</div>', unsafe_allow_html=True)
+    st.markdown('<div class="alert-box">Os valores abaixo são uma simulação auditável: o preço por litro/kWh tem data e fonte, o câmbio é editável e as tarifas de balsa aparecem separadas para não confundir passagem de passageiro com embarque do veículo.</div>', unsafe_allow_html=True)
+
+    # Resumo financeiro em USD usando o câmbio informado na barra lateral.
+    total_tesla_usd = sum(usd(row["ev_cost"], row["code"]) for _, row in segment_df.iterrows()) if not segment_df.empty else 0
+    total_tucson_usd = sum(usd(row["gas_cost"], row["code"]) for _, row in segment_df.iterrows()) if not segment_df.empty else 0
+    saving_usd = total_tucson_usd - total_tesla_usd
+    m1, m2, m3, m4 = st.columns(4)
+    m1.metric("Tesla — energia", f"US$ {total_tesla_usd:,.0f}".replace(",", "."))
+    m2.metric("Tucson — gasolina", f"US$ {total_tucson_usd:,.0f}".replace(",", "."))
+    m3.metric("Diferença estimada", f"US$ {saving_usd:,.0f}".replace(",", "."))
+    m4.metric("CO₂ operacional evitado", f"{max(total_tucson_co2 - total_tesla_co2, 0):,.0f} kg".replace(",", "."))
 
     col_v1, col_v2 = st.columns(2)
     with col_v1:
-        st.markdown("""
-        <div class="metric-box">
-            <div class="metric-val" style="font-size:1.5rem">Tesla Model 3</div>
-            <div class="metric-label">2024 Long Range · 100% Elétrico</div>
+        st.markdown(f"""
+        <div class="info-card" style="border-left-color: #2a9d8f;">
+            <h3>🔋 Tesla Model 3 Long Range</h3>
+            <p><b>Consumo modelado:</b> {economics['assumptions']['tesla_kwh_per_100km']:.1f} kWh/100 km + {economics['assumptions']['tesla_charge_loss']:.0%} de perdas de recarga.</p>
+            <p><b>Energia da viagem:</b> {segment_df['tesla_kwh'].sum():,.0f} kWh</p>
+            <p><b>CO₂ da eletricidade:</b> {total_tesla_co2:,.0f} kg</p>
+            <p><b>Premissa:</b> a tarifa pública por kWh varia por rede; o valor exibido pode ser alterado na base de dados.</p>
         </div>
         """, unsafe_allow_html=True)
-        st.image("https://www.tesla.com/sites/default/files/model3new/social/model-3-main.jpg", use_container_width=True)
-        st.write(f"**{T['tesla_range']}** 550 km")
-        st.write(f"**{T['tesla_battery']}** 78.1 kWh")
-        st.write(f"**{T['tesla_infra']}** Rede de Eletropostos / Conectores CCS2")
-
     with col_v2:
-        st.markdown("""
-        <div class="metric-box danger">
-            <div class="metric-val" style="font-size:1.5rem;color:#8B2515">Hyundai Tucson</div>
-            <div class="metric-label">2024 · Combustão Interna</div>
+        st.markdown(f"""
+        <div class="info-card" style="border-left-color: #e63946;">
+            <h3>⛽ Hyundai Tucson 2.0</h3>
+            <p><b>Consumo modelado:</b> {economics['assumptions']['tucson_km_per_litre']:.1f} km/L.</p>
+            <p><b>Gasolina consumida:</b> {segment_df['gas_l'].sum():,.0f} L</p>
+            <p><b>CO₂ direto:</b> {total_tucson_co2:,.0f} kg</p>
+            <p><b>Fator aplicado:</b> {economics['assumptions']['gasoline_co2_kg_per_litre']:.3f} kg CO₂/L, conforme referência EPA/IPCC.</p>
         </div>
         """, unsafe_allow_html=True)
-        st.image("https://www.hyundai.com/content/dam/hyundai/ww/en/images/find-a-car/tucson/highlights/hyundai-tucson-nx4-highlights-exterior-pc.jpg", use_container_width=True)
-        st.write(f"**{T['tucson_range']}** 750 km")
-        st.write(f"**{T['tucson_tank']}** 54 L")
-        st.write(f"**{T['tucson_infra']}** Redes de Postos (Ipiranga, YPF, Copec)")
 
-    st.markdown("<br><hr>", unsafe_allow_html=True)
-    st.markdown(f'<div class="section-label">{T["comparison_label"]}</div>', unsafe_allow_html=True)
-    st.markdown(f'<div class="section-title" style="font-size:1.6rem">{T["comparison_title"]}</div>', unsafe_allow_html=True)
+    st.markdown("#### Comparação de custo por segmento")
+    if not segment_df.empty:
+        chart_df = segment_df[["Destino", "gas_cost", "ev_cost"]].copy()
+        chart_df["Tucson"] = [usd(v, c) for v, c in zip(segment_df["gas_cost"], segment_df["code"])]
+        chart_df["Tesla"] = [usd(v, c) for v, c in zip(segment_df["ev_cost"], segment_df["code"])]
+        fig = go.Figure(data=[
+            go.Bar(name="Tesla — eletricidade", x=chart_df["Destino"], y=chart_df["Tesla"], marker_color="#2a9d8f"),
+            go.Bar(name="Tucson — gasolina", x=chart_df["Destino"], y=chart_df["Tucson"], marker_color="#e63946")
+        ])
+        fig.update_layout(barmode="group", paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", yaxis_title="US$ por trecho", xaxis_title="Próxima parada", height=460)
+        st.plotly_chart(fig, use_container_width=True)
 
-    fig = go.Figure(data=[
-        go.Bar(name='Tesla Model 3 (Charging)', x=['São Paulo ➔ Ushuaia'], y=[450], marker_color='#2D7A3A'),
-        go.Bar(name='Hyundai Tucson (Gasoline)', x=['São Paulo ➔ Ushuaia'], y=[1200], marker_color='#8B2515')
-    ])
-    fig.update_layout(
-        barmode='group',
-        paper_bgcolor='rgba(0,0,0,0)',
-        plot_bgcolor='rgba(0,0,0,0)',
-        yaxis_title="USD ($)",
-        font=dict(family='DM Sans'),
-        margin=dict(t=20, b=20)
-    )
-    st.plotly_chart(fig, use_container_width=True)
+        table = segment_df[["Trecho", "País", "modal", "km", "drive_km", "gas_price", "elec_price", "gas_cost", "ev_cost", "price_date"]].copy()
+        table.columns = ["Trecho", "País", "Modal", "km da rota", "km rodoviários", "Gasolina/nafta (local/L)", "Energia (local/kWh)", "Tucson (local)", "Tesla (local)", "Data"]
+        st.dataframe(table, use_container_width=True, hide_index=True)
 
-    st.markdown(f"""
-    <div class="info-card" style="margin-top:1rem">
-        <strong>{T['why_go_title']}</strong><br><br>
-        <p style="font-size:0.92rem;color:#3D4D5A;line-height:1.7">{T['why_go_text']}</p>
-    </div>
-    """, unsafe_allow_html=True)
+    st.markdown("#### Travessias por água e custos que não são rodoviários")
+    ferry_table = ferry_costs(economics)
+    st.dataframe(ferry_table, use_container_width=True, hide_index=True)
+    first_angostura = economics["ferries"][0]
+    beagle = economics["ferries"][1]
+    ferry_vehicle_usd = first_angostura["indicative_vehicle_fare"] / fx["AR"]
+    beagle_passenger_usd = beagle["passenger_fare"] + beagle["port_fee"]
+    f1, f2, f3 = st.columns(3)
+    f1.metric("Balsa + veículo", f"US$ {ferry_vehicle_usd:,.0f}".replace(",", "."))
+    f2.metric("Canal Beagle — 1 passageiro", f"US$ {beagle_passenger_usd:,.0f}".replace(",", "."))
+    f3.metric("Transporte do carro no Beagle", "Cotação especial")
+    st.caption("A balsa Primera Angostura é modelada como embarque do veículo. O cruce Ushuaia–Puerto Williams aparece como serviço de passageiros: o app não soma automaticamente o transporte do Tesla/Tucson porque o embarque do carro exige cotação específica.")
 
-    st.markdown(f"<br><div class='section-label'>{T['tech_label']}</div>", unsafe_allow_html=True)
-    techs = ["Python 3.11", "Streamlit", "Folium", "Plotly", "Pandas", "JSON"]
-    badges_html = "".join([f'<span class="source-badge">{tech}</span>' for tech in techs])
-    st.markdown(f'<div class="source-badges">{badges_html}</div>', unsafe_allow_html=True)
+    st.markdown("#### Preços observados por país")
+    market_rows = []
+    for code, item in economics["prices"].items():
+        market_rows.append({
+            "País": item["country"],
+            "Gasolina/nafta": f"{money(item['gasoline'], code)}/L",
+            "Diesel/gasoil": f"{money(item['diesel'], code)}/L",
+            "Recarga pública (hipótese)": f"{money(item['electricity_kwh'], code)}/kWh",
+            "Última coleta": item["collected_at"],
+            "Frequência": item["frequency"],
+            "Fonte": item["source"]
+        })
+    st.dataframe(pd.DataFrame(market_rows), use_container_width=True, hide_index=True)
+    st.caption(f"Última tentativa de atualização da sessão: {economics['runtime']['loaded_at']}. Atualizações online aceitas: {', '.join(economics['runtime']['online_updates']) or 'nenhuma; usando snapshot local'}.")
 
-# ============================================================
+# ── SEÇÃO 5: METODOLOGIA ───────────────────────────────────
+elif nav_choice == T["nav_tech"]:
+    st.markdown(f'<div class="section-label">{T["tech_label"]}</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-title">Metodologia, fontes e limites da simulação</div>', unsafe_allow_html=True)
+    st.markdown("<div class='info-card'>O painel combina rota geográfica, um snapshot local versionado e tentativas de atualização online com cache de 24 horas. Se uma fonte falhar, o último valor válido continua visível junto da data de coleta; isso é mais seguro do que apagar o dado ou inventar um preço.</div>", unsafe_allow_html=True)
+
+    a1, a2 = st.columns(2)
+    with a1:
+        st.markdown("#### Hipóteses editáveis")
+        assumptions = economics["assumptions"]
+        assumptions_df = pd.DataFrame([
+            {"Parâmetro": "Tesla — consumo", "Valor": f"{assumptions['tesla_kwh_per_100km']:.1f} kWh/100 km"},
+            {"Parâmetro": "Tesla — perdas de recarga", "Valor": f"{assumptions['tesla_charge_loss']:.0%}"},
+            {"Parâmetro": "Tucson — consumo", "Valor": f"{assumptions['tucson_km_per_litre']:.1f} km/L"},
+            {"Parâmetro": "Gasolina — CO₂ direto", "Valor": f"{assumptions['gasoline_co2_kg_per_litre']:.3f} kg/L"},
+            {"Parâmetro": "Diesel — CO₂ direto", "Valor": f"{assumptions['diesel_co2_kg_per_litre']:.3f} kg/L"}
+        ])
+        st.dataframe(assumptions_df, use_container_width=True, hide_index=True)
+    with a2:
+        st.markdown("#### Fatores de eletricidade por país")
+        grid_df = pd.DataFrame([{"País": economics["prices"][c]["country"], "Hipótese": f"{v:.2f} kg CO₂/kWh"} for c, v in assumptions["grid_co2_kg_per_kwh"].items()])
+        st.dataframe(grid_df, use_container_width=True, hide_index=True)
+        st.caption(assumptions["assumption_note"])
+
+    st.markdown("#### Fontes consultadas")
+    sources_df = pd.DataFrame(economics["sources"])
+    st.dataframe(sources_df, use_container_width=True, hide_index=True)
+    st.markdown("#### Status da atualização nesta sessão")
+    st.json(economics["runtime"])
+
 # RODAPÉ
-# ============================================================
 st.markdown(f"""
 <div class="footer-wrap">
     <div class="footer-title">{T['footer_title']}</div>
-    <p style="margin:0.5rem 0;font-size:0.9rem">{T['footer_desc']}</p>
-    <p style="margin:1rem 0 0.5rem;font-size:0.85rem;opacity:0.7">
-    {T['footer_links']} &nbsp;|&nbsp;
-    🌐 <a href="https://amaurialmeida.github.io/environmental-portfolio/" style="color:#6FA8FF">Portfólio</a> &nbsp;|&nbsp;
-    🐙 <a href="https://github.com/amaurialmeida" style="color:#6FA8FF">GitHub</a>
-    </p>
-    <p style="font-size:0.75rem;opacity:0.5;margin:0">© 2024–2026 · Expedição Patagônia · Pesquisa de Campo</p>
+    <p style="margin: 0.5rem 0; font-size: 0.92rem;">{T['footer_desc']}</p>
+    <p style="margin: 1rem 0; font-size: 0.85rem;">{T['footer_links']} &nbsp;|&nbsp; 🌐 <a href="https://amaurialmeida.github.io/environmental-portfolio/" style="color:#ffb703">Portfólio</a></p>
 </div>
 """, unsafe_allow_html=True)
