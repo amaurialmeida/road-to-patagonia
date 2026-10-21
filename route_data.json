@@ -1,0 +1,68 @@
+[
+    {
+        "name": "São Paulo (Mooca), BR",
+        "lat": -23.5558,
+        "lon": -46.6116,
+        "type": "Start"
+    },
+    {
+        "name": "Curitiba, BR",
+        "lat": -25.429,
+        "lon": -49.2671,
+        "type": "Tesla/Gas"
+    },
+    {
+        "name": "Uruguaiana, BR",
+        "lat": -29.7618,
+        "lon": -57.0853,
+        "type": "Border"
+    },
+    {
+        "name": "Paso de los Libres, AR",
+        "lat": -29.7135,
+        "lon": -57.0883,
+        "type": "Border"
+    },
+    {
+        "name": "Buenos Aires, AR",
+        "lat": -34.6037,
+        "lon": -58.3816,
+        "type": "Hub"
+    },
+    {
+        "name": "Bahía Blanca, AR",
+        "lat": -38.7183,
+        "lon": -62.2663,
+        "type": "Tesla/Gas"
+    },
+    {
+        "name": "Puerto Madryn, AR",
+        "lat": -42.7692,
+        "lon": -65.0385,
+        "type": "Wildlife/Grid"
+    },
+    {
+        "name": "Punta Tombo, AR",
+        "lat": -44.0473,
+        "lon": -65.187,
+        "type": "Wildlife"
+    },
+    {
+        "name": "Comodoro Rivadavia, AR",
+        "lat": -45.8641,
+        "lon": -67.4808,
+        "type": "Wind/Gas"
+    },
+    {
+        "name": "Río Gallegos, AR",
+        "lat": -51.623,
+        "lon": -69.2168,
+        "type": "Gateway"
+    },
+    {
+        "name": "Ushuaia, AR",
+        "lat": -54.8019,
+        "lon": -68.303,
+        "type": "End (AR)"
+    }
+]
